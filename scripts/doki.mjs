@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const THEMES_DIR = path.join(ROOT, "src", "themes");
 const DIST_DIR = path.join(ROOT, "dist");
-const IDEA_VERSION = "88.5-1.16.1-nini-pack.1";
-const HYPER_VERSION = "88.1.2-nini-pack.1";
+const IDEA_VERSION = "88.5-1.16.1-nini-pack.2";
+const HYPER_VERSION = "88.1.2-nini-pack.2";
 const IDEA_JAR = "doki-theme-jetbrains-88.5-1.16.1.jar";
 const REQUIRED_FILES = [
   "definition.json",
@@ -434,6 +434,7 @@ function buildIdea(themes = validateThemes()) {
 
 function hyperCustomizationsSource(themes) {
   const specs = themes.map((theme) => ({
+    id: theme.definition.id,
     meta: `${theme.slug}.json`,
     sticker: `${theme.slug}-sticker.png`,
     wallpaper: `${theme.slug}-wallpaper.png`,
@@ -444,6 +445,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const THEME_SPECS = ${JSON.stringify(specs, null, 2)};
+const CUSTOM_THEME_IDS = new Set(THEME_SPECS.map((spec) => spec.id));
 const POSITION_MAP = {
   CENTER: "center", MIDDLE_RIGHT: "right center", MIDDLE_LEFT: "left center",
   TOP_RIGHT: "right top", TOP_LEFT: "left top",
@@ -493,6 +495,29 @@ function installAsset(sourceName, targetKind) {
   fs.copyFileSync(source, target);
 }
 
+function toFileUrl(file) {
+  const normalized = file.replace(/\\\\/g, "/");
+  return \`file://\${encodeURI(normalized).replace(/[!'()*]/g, (character) =>
+    \`%\${character.charCodeAt(0).toString(16).toUpperCase()}\`
+  )}\`;
+}
+
+function protectLocalAssets() {
+  const config = require("./config");
+  const updater = require("./StickerUpdateService");
+  const updateOfficialAssets = updater.attemptToUpdateSticker;
+  updater.attemptToUpdateSticker = async () => {
+    const { theme, sticker: { sticker } } = config.getTheme();
+    if (!CUSTOM_THEME_IDS.has(theme.information.id)) {
+      return updateOfficialAssets();
+    }
+    return {
+      stickerDataURL: toFileUrl(updater.resolveLocalStickerPath(sticker)),
+      wallpaperURL: toFileUrl(updater.resolveLocalWallpaperPath(sticker)),
+    };
+  };
+}
+
 function install() {
   const definitions = require("./DokiThemeDefinitions").default;
   for (const spec of THEME_SPECS) {
@@ -501,6 +526,7 @@ function install() {
     installAsset(spec.sticker, "stickers");
     installAsset(spec.wallpaper, "wallpapers");
   }
+  protectLocalAssets();
 }
 
 exports.install = install;

@@ -18,6 +18,7 @@ jobs:
           node-version: 22
       - run: npm run bootstrap
       - run: npm run build
+      - run: npm run test:hyper
       - uses: actions/upload-artifact@v4
         with:
           name: nini-doki-packages

@@ -1,0 +1,31 @@
+name: Publish release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run validate
+      - run: npm run sync:official
+      - run: git diff --exit-code -- official
+      - run: npm run bootstrap
+      - run: npm run build
+      - run: npm run test:hyper
+      - name: Publish JetBrains and Hyper packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" dist/*.zip
+          --repo "$GITHUB_REPOSITORY"
+          --title "Nini Doki Themes $GITHUB_REF_NAME"
+          --generate-notes

@@ -14,6 +14,7 @@
     "build": "node scripts/doki.mjs build",
     "build:hyper": "node scripts/doki.mjs build hyper",
     "build:idea": "node scripts/doki.mjs build idea",
+    "test:hyper": "node scripts/test-hyper-runtime.cjs dist/hyper/doki-theme-hyper-nini",
     "install:hyper": "node scripts/doki.mjs install hyper",
     "install:idea": "node scripts/doki.mjs install idea",
     "new-theme": "node scripts/doki.mjs new",

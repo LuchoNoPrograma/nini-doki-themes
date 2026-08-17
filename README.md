@@ -90,9 +90,15 @@ different Node/JVM generations and external asset infrastructure.
 | `npm run validate` | Validate definitions, paths, IDs and assets |
 | `npm run sync:official` | Regenerate official-compatible overlay files |
 | `npm run build` | Build JetBrains and Hyper packages |
+| `npm run test:hyper` | Verify custom Hyper assets stay local and valid |
 | `npm run install:idea` | Build and install the JetBrains package |
 | `npm run install:hyper` | Build and install the Hyper package |
 | `npm run export` | Create a fully portable local backup |
+
+## Releases
+
+Tags matching `v*` publish both generated packages as a GitHub Release. JetBrains users can install its ZIP with
+`Plugins > Install Plugin from Disk`. Hyper users can extract its ZIP as the `doki-theme-hyper-nini` local plugin.
 
 ## Licensing
 
