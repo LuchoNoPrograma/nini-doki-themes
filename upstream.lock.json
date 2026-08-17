@@ -1,0 +1,16 @@
+{
+  "repositories": {
+    "doki-master-theme": {
+      "repository": "https://github.com/doki-theme/doki-master-theme.git",
+      "commit": "4467240b45837ff473903d572790112fc2caa8ca"
+    },
+    "doki-theme-jetbrains": {
+      "repository": "https://github.com/doki-theme/doki-theme-jetbrains.git",
+      "commit": "5eb8ef00cab6f5ca14a8e7b5bff1c9d19ac5a951"
+    },
+    "doki-theme-hyper": {
+      "repository": "https://github.com/doki-theme/doki-theme-hyper.git",
+      "commit": "3dbfc39dbc272bc9ae60d45b01b91b7c5ff6dc86"
+    }
+  }
+}

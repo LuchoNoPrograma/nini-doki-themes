@@ -1,0 +1,26 @@
+{
+  "name": "nini-doki-themes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public Doki extension pack and builders for Nini's custom themes",
+  "scripts": {
+    "bootstrap": "node scripts/doki.mjs bootstrap",
+    "list": "node scripts/doki.mjs list",
+    "validate": "node scripts/doki.mjs validate",
+    "sync:official": "node scripts/doki.mjs sync-official",
+    "upstream:bootstrap": "node scripts/doki.mjs upstream-bootstrap",
+    "upstream:prepare": "node scripts/doki.mjs upstream-prepare",
+    "build": "node scripts/doki.mjs build",
+    "build:hyper": "node scripts/doki.mjs build hyper",
+    "build:idea": "node scripts/doki.mjs build idea",
+    "install:hyper": "node scripts/doki.mjs install hyper",
+    "install:idea": "node scripts/doki.mjs install idea",
+    "new-theme": "node scripts/doki.mjs new",
+    "export": "node scripts/doki.mjs export",
+    "compile:installer": "node scripts/doki.mjs compile-installer"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
