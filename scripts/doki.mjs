@@ -642,7 +642,7 @@ function exportPortable(themes) {
   buildHyper(themes);
   const backups = path.resolve(ROOT, "..", "backups");
   fs.mkdirSync(backups, { recursive: true });
-  const portable = path.join(backups, "Nini-Doki-Workshop-portable.zip");
+  const portable = path.join(backups, "Nini-Doki-Themes-portable.zip");
   fs.rmSync(portable, { force: true });
   run("zip", [
     "-qr", portable,
