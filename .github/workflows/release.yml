@@ -3,6 +3,12 @@ name: Publish release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish
+        required: true
+        default: v1.0.0
 
 permissions:
   contents: write
@@ -24,8 +30,15 @@ jobs:
       - name: Publish JetBrains and Hyper packages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME" dist/*.zip
-          --repo "$GITHUB_REPOSITORY"
-          --title "Nini Doki Themes $GITHUB_REF_NAME"
-          --generate-notes
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set +e
+          for attempt in 1 2 3 4 5; do
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+              gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+                --title "Nini Doki Themes $RELEASE_TAG" --generate-notes
+            gh release upload "$RELEASE_TAG" dist/*.zip \
+              --repo "$GITHUB_REPOSITORY" --clobber && exit 0
+            sleep $((attempt * 10))
+          done
+          exit 1
