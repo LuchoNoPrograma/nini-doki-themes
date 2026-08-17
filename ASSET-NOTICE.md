@@ -2,10 +2,10 @@
 
 The character stickers and wallpapers in this repository are unofficial, AI-generated fan artwork assembled for
 personalization themes. This project is not affiliated with, endorsed by, or sponsored by Moonton, Kodansha, Negi
-Haruba, Doki Theme, or their partners.
+Haruba, FromSoftware, Bandai Namco Entertainment, Doki Theme, or their partners.
 
-Mobile Legends: Bang Bang, The Aspirants, The Quintessential Quintuplets, the character names, and related marks and
-designs belong to their respective owners. No ownership of those properties is claimed.
+Mobile Legends: Bang Bang, The Aspirants, The Quintessential Quintuplets, Dark Souls, the character names, and related
+marks and designs belong to their respective owners. No ownership of those properties is claimed.
 
 The generated fan assets are provided for non-commercial community use with attribution to this repository. Do not
 represent them as official artwork or use them to imply endorsement by the rights holders. A rights holder may request

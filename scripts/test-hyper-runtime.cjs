@@ -4,14 +4,14 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(process.argv[2] || "dist/hyper/doki-theme-hyper-nini");
-const themes = [
-  ["72ce089e-658b-48f6-ab5c-98f042850f0b", "angela-aspirants"],
-  ["da9c45a6-a643-466f-8f69-c6e2cd5f5643", "fanny-aspirants"],
-  ["d8d207b7-28a1-42b8-903d-7ed914f663e4", "guinevere-aspirants"],
-  ["de61b4ab-d261-4e15-848f-6d9ca1232424", "vexana-aspirants"],
-  ["0d4c01bd-9b9f-4c45-92b6-4165d137f2c8", "nakano-itsuki-dark"],
-  ["7a1ddcf8-0c52-4da6-bf83-3224c729303c", "nakano-miku-dark"],
-];
+const metaDirectory = path.join(pluginRoot, "build", "nini-meta");
+const themes = fs.readdirSync(metaDirectory)
+  .filter((file) => file.endsWith(".json"))
+  .sort()
+  .map((file) => {
+    const definition = JSON.parse(fs.readFileSync(path.join(metaDirectory, file), "utf8"));
+    return [definition.id, path.basename(file, ".json")];
+  });
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "nini-doki-hyper-test-"));
 
 async function test() {

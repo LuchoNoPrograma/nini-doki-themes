@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const THEMES_DIR = path.join(ROOT, "src", "themes");
 const DIST_DIR = path.join(ROOT, "dist");
-const IDEA_VERSION = "88.5-1.16.1-nini-pack.2";
-const HYPER_VERSION = "88.1.2-nini-pack.2";
+const IDEA_VERSION = "88.5-1.16.1-nini-pack.3";
+const HYPER_VERSION = "88.1.2-nini-pack.3";
 const IDEA_JAR = "doki-theme-jetbrains-88.5-1.16.1.jar";
 const REQUIRED_FILES = [
   "definition.json",

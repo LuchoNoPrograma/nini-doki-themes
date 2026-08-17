@@ -3,8 +3,9 @@
 Public, unofficial extension pack for [The Doki Theme](https://github.com/doki-theme). It keeps one source palette and
 fanmade asset set per theme, then generates working packages for JetBrains IDEs and Hyper.
 
-The initial collection contains four Mobile Legends Aspirants themes (Angela, Guinevere, Vexana and Fanny) and two
-Quintessential Quintuplets dark themes (Nakano Miku and Nakano Itsuki). Their stable IDs are documented in
+The collection contains four Mobile Legends Aspirants themes (Angela, Guinevere, Vexana and Fanny), two
+Quintessential Quintuplets dark themes (Nakano Miku and Nakano Itsuki), and two Dark Souls themes (Emerald Herald and
+Firekeeper). Their stable IDs are documented in
 [CUSTOM_THEMES.md](CUSTOM_THEMES.md).
 
 ## Quick Start
