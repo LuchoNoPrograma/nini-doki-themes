@@ -19,8 +19,9 @@ npm run validate
 npm run build
 ```
 
-`bootstrap` downloads two pinned Doki runtime bases from this repository's Releases. They are deliberately not stored
-in Git history. No npm dependencies are required for the regular builder.
+`bootstrap` downloads pinned official releases directly from JetBrains Marketplace and npm, verifies their SHA-256
+checksums, and prepares the local runtime bases under `vendor/`. Third-party binaries are deliberately not stored in
+Git history. The regular builder has no project-level npm dependencies.
 
 Install locally:
 
