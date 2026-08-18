@@ -25,6 +25,9 @@ async function test() {
       themeId,
       showSticker: true,
       showWallpaper: true,
+      hideStickerOnHover: true,
+      stickerHoverOpacity: 0.15,
+      stickerTransitionMs: 160,
       stickerType: "DEFAULT",
       useFonts: false,
     }),
@@ -44,7 +47,22 @@ async function test() {
     assert.equal(fs.readFileSync(sticker).subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
     assert.equal(fs.readFileSync(wallpaper).subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
   }
-  console.log(`${themes.length} Hyper custom themes keep their local PNG assets.`);
+
+  const decoratorSource = fs.readFileSync(path.join(pluginRoot, "build", "decorator.js"), "utf8");
+  const settingsSource = fs.readFileSync(path.join(pluginRoot, "build", "settings.js"), "utf8");
+  const configSource = fs.readFileSync(path.join(pluginRoot, "build", "config.js"), "utf8");
+  assert.match(decoratorSource, /stickerHovered/);
+  assert.match(decoratorSource, /handleStickerMouseMove/);
+  assert.match(decoratorSource, /getBoundingClientRect/);
+  assert.match(decoratorSource, /addEventListener\("mousemove"/);
+  assert.match(decoratorSource, /ref: this\.stickerRef/);
+  assert.match(decoratorSource, /stickerHoverOpacity/);
+  assert.match(decoratorSource, /transition: "opacity "/);
+  assert.match(settingsSource, /Hide Sticker on Hover/);
+  assert.match(settingsSource, /TOGGLE_STICKER_HOVER/);
+  assert.match(configSource, /hideStickerOnHover: true/);
+
+  console.log(`${themes.length} Hyper custom themes keep local assets and native sticker hover behavior.`);
 }
 
 test()

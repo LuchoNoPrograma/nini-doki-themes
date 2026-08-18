@@ -34,6 +34,19 @@ npm run install:idea
 The JetBrains installer auto-detects the newest `IntelliJIdea*` directory. Another compatible JetBrains plugin directory
 can be supplied with `npm run install:idea -- --target /path/to/doki-theme-jetbrains`.
 
+### Hyper Sticker Transparency
+
+The Nini Hyper plugin adds `Hide Sticker on Hover` directly to the `Doki-Theme Settings` menu. Stickers remain fully
+opaque until the pointer enters them, then fade to 15% opacity over 160 ms. The preference is global, so newly added
+custom profiles inherit it automatically.
+
+The values are stored with Doki's other preferences in `.doki-theme-hyper-config/.hyper.doki.config.json`, rather than
+being tied to a particular theme definition.
+
+JetBrains IDEs already provide the equivalent behavior globally under `Settings | Appearance & Behavior | Doki Theme |
+Hide on hover`, including a configurable delay. It applies to custom and official profiles without another runtime
+patch.
+
 ## Create A Theme
 
 Run the interactive creator:

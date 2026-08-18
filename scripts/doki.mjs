@@ -533,12 +533,150 @@ exports.install = install;
 `;
 }
 
+function replaceRequired(source, marker, replacement, description) {
+  if (!source.includes(marker)) {
+    throw new Error(`La base de Doki Hyper cambio: no encontre ${description}`);
+  }
+  return source.replace(marker, replacement);
+}
+
+function patchHyperStickerHoverRuntime(pluginRoot) {
+  const configPath = path.join(pluginRoot, "build", "config.js");
+  let configSource = fs.readFileSync(configPath, "utf8");
+  configSource = replaceRequired(
+    configSource,
+    "    showWallpaper: true,\n    stickerType:",
+    "    showWallpaper: true,\n    hideStickerOnHover: true,\n    stickerHoverOpacity: 0.15,\n    stickerTransitionMs: 160,\n    stickerType:",
+    "los valores predeterminados del sticker",
+  );
+  configSource = replaceRequired(
+    configSource,
+    "    return JSON.parse(fs_1.default.readFileSync(configFile, \"utf8\"));",
+    "    return Object.assign({}, exports.DEFAULT_CONFIGURATION, JSON.parse(fs_1.default.readFileSync(configFile, \"utf8\")));",
+    "la lectura de configuracion de Doki",
+  );
+  fs.writeFileSync(configPath, configSource);
+
+  const settingsPath = path.join(pluginRoot, "build", "settings.js");
+  let settingsSource = fs.readFileSync(settingsPath, "utf8");
+  settingsSource = replaceRequired(
+    settingsSource,
+    'exports.TOGGLE_STICKER = "TOGGLE_STICKER";',
+    'exports.TOGGLE_STICKER = "TOGGLE_STICKER";\nexports.TOGGLE_STICKER_HOVER = "TOGGLE_STICKER_HOVER";',
+    "el evento Toggle Sticker",
+  );
+  const wallpaperMenuMarker = `            {
+                label: "Toggle Wallpaper",`;
+  settingsSource = replaceRequired(
+    settingsSource,
+    wallpaperMenuMarker,
+    `            {
+                label: "Hide Sticker on Hover",
+                type: "checkbox",
+                checked: config_1.extractConfig().hideStickerOnHover !== false,
+                click: (menuItem, focusedWindow) => __awaiter(void 0, void 0, void 0, function* () {
+                    const savedConfig = config_1.extractConfig();
+                    const hideStickerOnHover = menuItem.checked;
+                    config_1.saveConfig(Object.assign(Object.assign({}, savedConfig), { hideStickerOnHover }));
+                    focusedWindow.rpc.emit(exports.TOGGLE_STICKER_HOVER);
+                }),
+            },
+${wallpaperMenuMarker}`,
+    "el menu Toggle Wallpaper",
+  );
+  fs.writeFileSync(settingsPath, settingsSource);
+
+  const decoratorPath = path.join(pluginRoot, "build", "decorator.js");
+  let decoratorSource = fs.readFileSync(decoratorPath, "utf8");
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    'const StickerUpdateService_1 = require("./StickerUpdateService");',
+    'const StickerUpdateService_1 = require("./StickerUpdateService");\nconst config_1 = require("./config");',
+    "la dependencia StickerUpdateService",
+  );
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    "            this.state = {\n                imageLoaded: false,\n            };",
+    `            this.state = {
+                imageLoaded: false,
+                stickerHovered: false,
+            };
+            this.stickerRef = react_1.default.createRef();
+            this.handleStickerMouseMove = (event) => {
+                const sticker = this.stickerRef.current;
+                if (!sticker)
+                    return;
+                const bounds = sticker.getBoundingClientRect();
+                const stickerHovered = event.clientX >= bounds.left && event.clientX <= bounds.right &&
+                    event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+                if (stickerHovered !== this.state.stickerHovered)
+                    this.setState({ stickerHovered });
+            };`,
+    "el estado de carga del sticker",
+  );
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    "        componentDidMount() {\n            if (!initialized) {",
+    "        componentDidMount() {\n            window.addEventListener(\"mousemove\", this.handleStickerMouseMove, true);\n            if (!initialized) {",
+    "el montaje del terminal",
+  );
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    "        componentWillReceiveProps(nextProps) {",
+    "        componentWillUnmount() {\n            window.removeEventListener(\"mousemove\", this.handleStickerMouseMove, true);\n        }\n        componentWillReceiveProps(nextProps) {",
+    "la actualizacion de propiedades del terminal",
+  );
+  const fontListenerMarker = `                window.rpc.on(settings_1.TOGGLE_FONT, () => {
+                    window.store.dispatch(reloadConfig(window.config.getConfig()));
+                });`;
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    fontListenerMarker,
+    `${fontListenerMarker}
+                window.rpc.on(settings_1.TOGGLE_STICKER_HOVER, () => {
+                    this.forceUpdate();
+                    window.store.dispatch(reloadConfig(window.config.getConfig()));
+                });`,
+    "el listener Toggle Fonts",
+  );
+  const imageStyleMarker = `            const imageStyle = window.screen.width <= 1920
+                ? { maxHeight: "200px", maxWidth: "175px" }
+                : {};`;
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    imageStyleMarker,
+    `${imageStyleMarker}
+            const savedConfig = config_1.extractConfig();
+            const configuredHoverOpacity = Number(savedConfig.stickerHoverOpacity);
+            const hoverOpacity = Number.isFinite(configuredHoverOpacity)
+                ? Math.min(1, Math.max(0, configuredHoverOpacity)) : 0.15;
+            const configuredTransitionMs = Number(savedConfig.stickerTransitionMs);
+            const transitionMs = Number.isFinite(configuredTransitionMs)
+                ? Math.max(0, configuredTransitionMs) : 160;
+            const stickerOpacity = savedConfig.hideStickerOnHover !== false && this.state.stickerHovered
+                ? hoverOpacity : 1;
+            const stickerStyle = Object.assign({}, imageStyle, {
+                opacity: stickerOpacity,
+                transition: "opacity " + transitionMs + "ms ease",
+            });`,
+    "el estilo responsivo del sticker",
+  );
+  decoratorSource = replaceRequired(
+    decoratorSource,
+    'style: this.state.imageLoaded ? imageStyle : { display: "none" }, onLoad:',
+    'ref: this.stickerRef, style: this.state.imageLoaded ? stickerStyle : { display: "none" }, onLoad:',
+    "el elemento de imagen del sticker",
+  );
+  fs.writeFileSync(decoratorPath, decoratorSource);
+}
+
 function buildHyper(themes = validateThemes()) {
   requireRuntimeBases();
   const output = path.join(DIST_DIR, "hyper");
   resetDir(output);
   run("unzip", ["-q", path.join(ROOT, "vendor", "hyper-base.zip"), "-d", output]);
   const pluginRoot = path.join(output, "doki-theme-hyper-nini");
+  patchHyperStickerHoverRuntime(pluginRoot);
   const metaDir = path.join(pluginRoot, "build", "nini-meta");
   const assetsDir = path.join(pluginRoot, "assets", "nini");
   resetDir(metaDir);
