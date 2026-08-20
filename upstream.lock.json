@@ -11,6 +11,10 @@
     "doki-theme-hyper": {
       "repository": "https://github.com/doki-theme/doki-theme-hyper.git",
       "commit": "3dbfc39dbc272bc9ae60d45b01b91b7c5ff6dc86"
+    },
+    "doki-theme-vscode": {
+      "repository": "https://github.com/doki-theme/doki-theme-vscode.git",
+      "commit": "1661351593016a618a3de4fddc5985f8e8111477"
     }
   }
 }

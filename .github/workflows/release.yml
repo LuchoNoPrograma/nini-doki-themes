@@ -27,7 +27,8 @@ jobs:
       - run: npm run bootstrap
       - run: npm run build
       - run: npm run test:hyper
-      - name: Publish JetBrains and Hyper packages
+      - run: npm run test:vscode
+      - name: Publish JetBrains, Hyper and VS Code packages
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -37,7 +38,7 @@ jobs:
             gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
               gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
                 --title "Nini Doki Themes $RELEASE_TAG" --generate-notes
-            gh release upload "$RELEASE_TAG" dist/*.zip \
+            gh release upload "$RELEASE_TAG" dist/*.zip dist/*.vsix \
               --repo "$GITHUB_REPOSITORY" --clobber && exit 0
             sleep $((attempt * 10))
           done

@@ -2,5 +2,7 @@ dist/
 *.log
 .cache/
 vendor/*.zip
+vendor/*.vsix
+vendor/vscode-templates/
 vendor/classes/
 official/assets/

@@ -9,12 +9,15 @@ import path from "node:path";
 import process from "node:process";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { deflateSync, inflateSync } from "node:zlib";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const THEMES_DIR = path.join(ROOT, "src", "themes");
 const DIST_DIR = path.join(ROOT, "dist");
 const IDEA_VERSION = "88.5-1.16.1-nini-pack.3";
 const HYPER_VERSION = "88.1.2-nini-pack.3";
+const VSCODE_UPSTREAM_VERSION = "88.1.18";
+const VSCODE_VERSION = `${VSCODE_UPSTREAM_VERSION}-nini-pack.1`;
 const IDEA_JAR = "doki-theme-jetbrains-88.5-1.16.1.jar";
 const REQUIRED_FILES = [
   "definition.json",
@@ -28,6 +31,21 @@ const JETBRAINS_BASE_URL = "https://plugins.jetbrains.com/plugin/download?update
 const JETBRAINS_BASE_SHA256 = "580224064acdcd7a3b27a322d7b1e74fb1b56028ed1980c5acdfcf5f719cc058";
 const HYPER_BASE_URL = "https://registry.npmjs.org/doki-theme-hyper/-/doki-theme-hyper-88.1.2.tgz";
 const HYPER_BASE_SHA256 = "16589235238f68f5e3cf604f6c465b84fce881f60e864bb1d1952fa7b1a5abd4";
+const VSCODE_BASE_URL = `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/unthrottled/vsextensions/doki-theme/${VSCODE_UPSTREAM_VERSION}/vspackage`;
+const VSCODE_BASE_SHA256 = "ec38adc23ed4dbab77bf8a1fa6ac3fb076abeae138e84e03595c06663ce265f3";
+const VSCODE_SOURCE_COMMIT = "1661351593016a618a3de4fddc5985f8e8111477";
+const VSCODE_TEMPLATE_FILES = {
+  "base.colors.template.json": "3a972fde426820eb0e51f9f39eaab0254bba04b5040eff9ba08c6210131e6d41",
+  "base.laf.template.json": "49985bb65c76b0a593a2968c986723acd24518ec5dd148c4ad10681aa648fc63",
+  "base.semantic-tokens.template.json": "a7a2817caa99f79879b11adaaf4d42d32623fd28d8f7155a6ba30156884db57a",
+  "base.syntax.template.json": "9de601ce15f45b803e8fdd196be61cd672028166938a5dc074804c169a95fa20",
+  "dark.base.laf.template.json": "9546bd45d5faec5c198cc6066d4695930e13ecb1330ea858d7479835019bae83",
+  "dark.colors.template.json": "aef4302547b0c682a0023517d131d35dd1221ad3fdbd0aa8fa96e8cd6d5e8c17",
+  "dark.constrast.laf.template.json": "c18be04aff6ed60c954288f5bf35b5d5f78883185966e6d9ea37c01bbca44646",
+  "dark.dim.laf.template.json": "33343379d2a0afecb76cfcf8acd756aed623659b8ee79571c6ab9803c9ac6664",
+  "light.colors.template.json": "fff099e99ee19ad3769d8c49913d1e58ef50d622c851282c18183c5ab0db5172",
+  "light.laf.template.json": "b652b680feee8dd8914333baeb70d42bbec93742c3372e6d5ceb9c3b5d718e98",
+};
 const OFFICIAL_DIR = path.join(ROOT, "official");
 const UPSTREAM_DIR = path.join(ROOT, ".cache", "upstream");
 
@@ -61,7 +79,7 @@ function downloadPinned(url, expectedSha256, target) {
   const partial = `${target}.download`;
   fs.rmSync(partial, { force: true });
   try {
-    run("curl", ["-fL", "--retry", "3", url, "-o", partial]);
+    run("curl", ["--compressed", "-fL", "--retry", "3", url, "-o", partial]);
     const actual = sha256(partial);
     if (actual !== expectedSha256) {
       throw new Error(`Checksum inesperado para ${path.basename(target)}: ${actual}`);
@@ -73,9 +91,13 @@ function downloadPinned(url, expectedSha256, target) {
 }
 
 function requireRuntimeBases() {
-  const missing = ["jetbrains-base.zip", "hyper-base.zip"].filter(
+  const missing = ["jetbrains-base.zip", "hyper-base.zip", "vscode-base.vsix"].filter(
     (file) => !fs.existsSync(path.join(ROOT, "vendor", file)),
   );
+  const templates = path.join(ROOT, "vendor", "vscode-templates");
+  for (const file of Object.keys(VSCODE_TEMPLATE_FILES)) {
+    if (!fs.existsSync(path.join(templates, file))) missing.push(`vscode-templates/${file}`);
+  }
   if (missing.length) {
     throw new Error(`Faltan ${missing.join(", ")}. Ejecuta npm run bootstrap.`);
   }
@@ -119,6 +141,24 @@ function bootstrapRuntime() {
       fs.rmSync(temp, { recursive: true, force: true });
     }
   }
+
+  const vscodeTarget = path.join(vendorDir, "vscode-base.vsix");
+  if (fs.existsSync(vscodeTarget)) {
+    console.log("vscode-base.vsix: ya existe");
+  } else {
+    console.log("Descargando Doki Theme oficial desde VS Code Marketplace...");
+    downloadPinned(VSCODE_BASE_URL, VSCODE_BASE_SHA256, vscodeTarget);
+  }
+
+  const templateDir = path.join(vendorDir, "vscode-templates");
+  fs.mkdirSync(templateDir, { recursive: true });
+  for (const [file, checksum] of Object.entries(VSCODE_TEMPLATE_FILES)) {
+    const target = path.join(templateDir, file);
+    if (fs.existsSync(target) && sha256(target) === checksum) continue;
+    const url = `https://raw.githubusercontent.com/doki-theme/doki-theme-vscode/${VSCODE_SOURCE_COMMIT}/buildSrc/assets/templates/${file}`;
+    downloadPinned(url, checksum, target);
+  }
+  console.log(`Plantillas oficiales de VS Code: ${Object.keys(VSCODE_TEMPLATE_FILES).length}`);
 }
 
 function listThemes() {
@@ -285,10 +325,21 @@ function syncOfficial(themes = validateThemes(), quiet = false) {
         },
       },
     };
+    const vscode = {
+      id: theme.definition.id,
+      overrides: {},
+      laf: {
+        extends: theme.definition.dark ? "dark-contrast" : "light",
+        ui: {},
+      },
+      syntax: {},
+      colors: {},
+    };
 
     const masterDir = path.join(OFFICIAL_DIR, "definitions", relative);
     const jetbrainsDir = path.join(OFFICIAL_DIR, "apps", "jetbrains", relative);
     const hyperDir = path.join(OFFICIAL_DIR, "apps", "hyper", relative);
+    const vscodeDir = path.join(OFFICIAL_DIR, "apps", "vscode", relative);
     const assetDir = path.join(OFFICIAL_DIR, "assets", relative);
     writeJson(path.join(masterDir, masterName), master);
     writeJson(
@@ -297,6 +348,7 @@ function syncOfficial(themes = validateThemes(), quiet = false) {
     );
     fs.writeFileSync(path.join(jetbrainsDir, `${theme.config.fileName}.xml`), editorTemplate(theme));
     writeJson(path.join(hyperDir, `${theme.slug}.${mode}.hyper.definition.json`), hyper);
+    writeJson(path.join(vscodeDir, `${theme.slug}.${mode}.vsCode.definition.json`), vscode);
     fs.mkdirSync(assetDir, { recursive: true });
     fs.copyFileSync(path.join(theme.directory, "sticker.png"), path.join(assetDir, `${theme.slug}.png`));
     fs.copyFileSync(path.join(theme.directory, "wallpaper.png"), path.join(assetDir, theme.config.wallpaperName));
@@ -337,10 +389,12 @@ function prepareUpstream(themes = validateThemes()) {
   const master = path.join(UPSTREAM_DIR, "doki-master-theme");
   const jetbrains = path.join(UPSTREAM_DIR, "doki-theme-jetbrains");
   const hyper = path.join(UPSTREAM_DIR, "doki-theme-hyper");
+  const vscode = path.join(UPSTREAM_DIR, "doki-theme-vscode");
   const targets = [
     [path.join(OFFICIAL_DIR, "definitions"), path.join(master, "definitions", "niniCustom")],
     [path.join(OFFICIAL_DIR, "apps", "jetbrains"), path.join(jetbrains, "buildSrc", "assets", "themes", "niniCustom")],
     [path.join(OFFICIAL_DIR, "apps", "hyper"), path.join(hyper, "buildSrc", "assets", "themes", "niniCustom")],
+    [path.join(OFFICIAL_DIR, "apps", "vscode"), path.join(vscode, "buildSrc", "assets", "themes", "niniCustom")],
     [path.join(OFFICIAL_DIR, "assets"), path.join(UPSTREAM_DIR, "nini-theme-assets")],
   ];
   for (const [source, destination] of targets) {
@@ -348,7 +402,7 @@ function prepareUpstream(themes = validateThemes()) {
     copyDirectoryContents(source, destination);
   }
   console.log(`Upstream preparado en ${UPSTREAM_DIR}`);
-  console.log("Las definiciones usan los formatos oficiales master, jetbrains e hyper.");
+  console.log("Las definiciones usan los formatos oficiales master, jetbrains, hyper y VS Code.");
 }
 
 function jetBrainsLookAndFeel(definition) {
@@ -518,6 +572,193 @@ function protectLocalAssets() {
   };
 }
 
+function getCarouselThemeIds(savedConfig = require("./config").extractConfig()) {
+  const definitions = require("./DokiThemeDefinitions").default;
+  const configuredIds = Array.isArray(savedConfig.startupCarouselThemeIds)
+    ? savedConfig.startupCarouselThemeIds
+    : Object.keys(definitions);
+  return [...new Set(configuredIds)].filter((themeId) =>
+    definitions[themeId]
+  );
+}
+
+function withoutCarouselQueue(savedConfig) {
+  const { startupCarouselQueue, startupCarouselSelection, ...currentConfig } = savedConfig;
+  return currentConfig;
+}
+
+function setStartupCarouselEnabled(enabled) {
+  const config = require("./config");
+  const savedConfig = config.extractConfig();
+  config.saveConfig({
+    ...withoutCarouselQueue(savedConfig),
+    startupCarouselEnabled: enabled,
+    startupCarouselThemeIds: getCarouselThemeIds(savedConfig),
+  });
+}
+
+function setCarouselThemes(themeIds) {
+  const config = require("./config");
+  const definitions = require("./DokiThemeDefinitions").default;
+  const savedConfig = config.extractConfig();
+  const selectedIds = [...new Set(themeIds)].filter((themeId) => definitions[themeId]);
+  config.saveConfig({
+    ...withoutCarouselQueue(savedConfig),
+    startupCarouselThemeIds: selectedIds,
+  });
+}
+
+let carouselPickerWindow;
+
+function showCarouselPicker(parentWindow) {
+  const { BrowserWindow, ipcMain } = require("electron");
+  if (carouselPickerWindow && !carouselPickerWindow.isDestroyed()) {
+    carouselPickerWindow.focus();
+    return;
+  }
+  const definitions = require("./DokiThemeDefinitions").default;
+  const selectedIds = new Set(getCarouselThemeIds());
+  const themes = Object.values(definitions)
+    .sort((left, right) => left.information.name.localeCompare(right.information.name))
+    .map((definition) => ({
+      id: definition.information.id,
+      name: definition.information.name,
+      selected: selectedIds.has(definition.information.id),
+    }));
+  const saveChannel = "nini-doki-carousel:save";
+  const cancelChannel = "nini-doki-carousel:cancel";
+  const windowOptions = {
+    width: 520,
+    height: 680,
+    minWidth: 420,
+    minHeight: 480,
+    title: "Choose Startup Themes",
+    backgroundColor: "#17191d",
+    show: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "CarouselPickerPreload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  };
+  if (parentWindow && typeof parentWindow.isDestroyed === "function" && !parentWindow.isDestroyed()) {
+    windowOptions.parent = parentWindow;
+    windowOptions.modal = true;
+  }
+  const picker = new BrowserWindow(windowOptions);
+  carouselPickerWindow = picker;
+  const save = (event, themeIds) => {
+    if (event.sender !== picker.webContents || !Array.isArray(themeIds)) return;
+    setCarouselThemes(themeIds);
+    picker.close();
+  };
+  const cancel = (event) => {
+    if (event.sender === picker.webContents) picker.close();
+  };
+  const cleanup = () => {
+    ipcMain.removeListener(saveChannel, save);
+    ipcMain.removeListener(cancelChannel, cancel);
+    if (carouselPickerWindow === picker) carouselPickerWindow = undefined;
+  };
+  ipcMain.on(saveChannel, save);
+  ipcMain.on(cancelChannel, cancel);
+  picker.once("closed", cleanup);
+  picker.once("ready-to-show", () => picker.show());
+  const themeData = JSON.stringify(themes).replace(/</g, "\\u003c");
+  const html = \`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose Startup Themes</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #17191d; color: #f0f2f5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: grid; grid-template-rows: auto auto 1fr auto; overflow: hidden; }
+    header { padding: 20px 22px 12px; border-bottom: 1px solid #343840; }
+    h1 { margin: 0 0 6px; font-size: 19px; font-weight: 650; letter-spacing: 0; }
+    #count { color: #aeb4bd; font-size: 13px; }
+    .search { padding: 12px 22px; border-bottom: 1px solid #343840; }
+    input[type="search"] { width: 100%; height: 36px; padding: 0 11px; border: 1px solid #484e58; border-radius: 6px; background: #23262c; color: #f0f2f5; outline: none; }
+    input[type="search"]:focus { border-color: #5bbdc8; box-shadow: 0 0 0 2px #5bbdc833; }
+    #themes { overflow-y: auto; padding: 8px 14px; }
+    label { min-height: 38px; display: flex; align-items: center; gap: 11px; padding: 7px 8px; border-radius: 4px; cursor: pointer; }
+    label:hover { background: #252a31; }
+    label[hidden] { display: none; }
+    input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: #5bbdc8; flex: 0 0 auto; }
+    .name { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+    footer { display: flex; justify-content: flex-end; gap: 9px; padding: 12px 22px; border-top: 1px solid #343840; background: #1c1f24; }
+    button { min-width: 82px; height: 34px; padding: 0 14px; border: 1px solid #4a505a; border-radius: 6px; background: #282c33; color: #f0f2f5; font-weight: 600; cursor: pointer; }
+    button:hover { background: #333840; }
+    button.primary { border-color: #5bbdc8; background: #326b72; }
+    button.primary:hover { background: #3b7b83; }
+  </style>
+</head>
+<body>
+  <header><h1>Choose Startup Themes</h1><div id="count"></div></header>
+  <div class="search"><input id="search" type="search" placeholder="Filter themes" autofocus></div>
+  <main id="themes"></main>
+  <footer><button id="cancel" type="button">Cancel</button><button id="apply" class="primary" type="button">Apply</button></footer>
+  <script>
+    const themes = \${themeData};
+    const container = document.getElementById("themes");
+    const count = document.getElementById("count");
+    const rows = themes.map((theme) => {
+      const label = document.createElement("label");
+      const checkbox = document.createElement("input");
+      const name = document.createElement("span");
+      checkbox.type = "checkbox";
+      checkbox.value = theme.id;
+      checkbox.checked = theme.selected;
+      name.className = "name";
+      name.textContent = theme.name;
+      label.append(checkbox, name);
+      container.append(label);
+      return { label, checkbox, search: theme.name.toLocaleLowerCase() };
+    });
+    const updateCount = () => {
+      const selected = rows.filter(({ checkbox }) => checkbox.checked).length;
+      count.textContent = selected + " of " + rows.length + " selected";
+    };
+    container.addEventListener("change", updateCount);
+    document.getElementById("search").addEventListener("input", (event) => {
+      const query = event.target.value.trim().toLocaleLowerCase();
+      for (const row of rows) row.label.hidden = !row.search.includes(query);
+    });
+    document.getElementById("apply").addEventListener("click", () => {
+      window.carouselPicker.save(rows.filter(({ checkbox }) => checkbox.checked).map(({ checkbox }) => checkbox.value));
+    });
+    document.getElementById("cancel").addEventListener("click", () => window.carouselPicker.cancel());
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") window.carouselPicker.cancel();
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") document.getElementById("apply").click();
+    });
+    updateCount();
+  </script>
+</body>
+</html>\`;
+  picker.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+}
+
+function selectStartupTheme() {
+  const config = require("./config");
+  const savedConfig = config.extractConfig();
+  if (savedConfig.startupCarouselEnabled !== true) return;
+  const selectedIds = getCarouselThemeIds(savedConfig);
+  if (selectedIds.length === 0) return;
+  const alternatives = selectedIds.filter((themeId) => themeId !== savedConfig.themeId);
+  const candidates = alternatives.length > 0 ? alternatives : selectedIds;
+  const themeId = candidates[Math.floor(Math.random() * candidates.length)];
+  config.saveConfig({
+    ...withoutCarouselQueue(savedConfig),
+    themeId,
+    startupCarouselThemeIds: selectedIds,
+  });
+  return themeId;
+}
+
 function install() {
   const definitions = require("./DokiThemeDefinitions").default;
   for (const spec of THEME_SPECS) {
@@ -526,10 +767,27 @@ function install() {
     installAsset(spec.sticker, "stickers");
     installAsset(spec.wallpaper, "wallpapers");
   }
+  selectStartupTheme();
   protectLocalAssets();
 }
 
 exports.install = install;
+exports.CUSTOM_THEME_IDS = CUSTOM_THEME_IDS;
+exports.getCarouselThemeIds = getCarouselThemeIds;
+exports.setStartupCarouselEnabled = setStartupCarouselEnabled;
+exports.setCarouselThemes = setCarouselThemes;
+exports.showCarouselPicker = showCarouselPicker;
+exports.selectStartupTheme = selectStartupTheme;
+`;
+}
+
+function hyperCarouselPickerPreloadSource() {
+  return `"use strict";
+const { contextBridge, ipcRenderer } = require("electron");
+contextBridge.exposeInMainWorld("carouselPicker", {
+  save: (themeIds) => ipcRenderer.send("nini-doki-carousel:save", themeIds),
+  cancel: () => ipcRenderer.send("nini-doki-carousel:cancel"),
+});
 `;
 }
 
@@ -546,7 +804,7 @@ function patchHyperStickerHoverRuntime(pluginRoot) {
   configSource = replaceRequired(
     configSource,
     "    showWallpaper: true,\n    stickerType:",
-    "    showWallpaper: true,\n    hideStickerOnHover: true,\n    stickerHoverOpacity: 0.15,\n    stickerTransitionMs: 160,\n    stickerType:",
+    "    showWallpaper: true,\n    hideStickerOnHover: true,\n    stickerHoverOpacity: 0.15,\n    stickerTransitionMs: 160,\n    startupCarouselEnabled: false,\n    stickerType:",
     "los valores predeterminados del sticker",
   );
   configSource = replaceRequired(
@@ -559,6 +817,12 @@ function patchHyperStickerHoverRuntime(pluginRoot) {
 
   const settingsPath = path.join(pluginRoot, "build", "settings.js");
   let settingsSource = fs.readFileSync(settingsPath, "utf8");
+  settingsSource = replaceRequired(
+    settingsSource,
+    'const themeTools_1 = require("./themeTools");',
+    'const themeTools_1 = require("./themeTools");\nconst NiniCustomizations_1 = require("./NiniCustomizations");',
+    "las dependencias del menu de Doki",
+  );
   settingsSource = replaceRequired(
     settingsSource,
     'exports.TOGGLE_STICKER = "TOGGLE_STICKER";',
@@ -583,6 +847,34 @@ function patchHyperStickerHoverRuntime(pluginRoot) {
             },
 ${wallpaperMenuMarker}`,
     "el menu Toggle Wallpaper",
+  );
+  const stickerTypeMenuMarker = `            {
+                id: "StickerType",`;
+  settingsSource = replaceRequired(
+    settingsSource,
+    stickerTypeMenuMarker,
+    `            {
+                id: "StartupCarousel",
+                label: "Startup Carousel",
+                commandId: 1990,
+                checked: false,
+                enabled: true,
+                submenu: [
+                    {
+                        label: "Enabled",
+                        type: "checkbox",
+                        checked: config_1.extractConfig().startupCarouselEnabled === true,
+                        click: (menuItem) => NiniCustomizations_1.setStartupCarouselEnabled(menuItem.checked),
+                    },
+                    { type: "separator" },
+                    {
+                        label: "Choose Themes... (" + NiniCustomizations_1.getCarouselThemeIds().length + " selected)",
+                        click: (_, focusedWindow) => NiniCustomizations_1.showCarouselPicker(focusedWindow),
+                    },
+                ],
+            },
+${stickerTypeMenuMarker}`,
+    "el menu Sticker Type",
   );
   fs.writeFileSync(settingsPath, settingsSource);
 
@@ -691,6 +983,10 @@ function buildHyper(themes = validateThemes()) {
     path.join(pluginRoot, "build", "NiniCustomizations.js"),
     hyperCustomizationsSource(themes),
   );
+  fs.writeFileSync(
+    path.join(pluginRoot, "build", "CarouselPickerPreload.js"),
+    hyperCarouselPickerPreloadSource(),
+  );
 
   const indexPath = path.join(pluginRoot, "build", "index.js");
   let indexSource = fs.readFileSync(indexPath, "utf8");
@@ -712,6 +1008,370 @@ function buildHyper(themes = validateThemes()) {
   fs.rmSync(archive, { force: true });
   run("zip", ["-qr", archive, "doki-theme-hyper-nini"], { cwd: output });
   console.log(`Hyper: ${archive}`);
+  return { archive, pluginRoot };
+}
+
+function vscodeTemplate(file) {
+  return readJson(path.join(ROOT, "vendor", "vscode-templates", file));
+}
+
+function resolveVscodeTemplate(value, palette) {
+  const resolvedColors = new Map();
+  const resolveColor = (name, trail = []) => {
+    if (resolvedColors.has(name)) return resolvedColors.get(name);
+    if (!(name in palette)) throw new Error(`La plantilla oficial de VS Code requiere el color ${name}`);
+    if (trail.includes(name)) throw new Error(`Referencia circular de color VS Code: ${[...trail, name].join(" -> ")}`);
+    const resolved = resolveString(palette[name], [...trail, name]);
+    resolvedColors.set(name, resolved);
+    return resolved;
+  };
+  const resolveString = (input, trail = []) => {
+    if (typeof input !== "string") return input;
+    let output = input;
+    for (let attempt = 0; attempt < 20 && /&[^&]+&/.test(output); attempt += 1) {
+      output = output.replace(/&([^&]+)&/g, (_, name) => resolveColor(name, trail));
+    }
+    if (/&[^&]+&/.test(output)) throw new Error(`No pude resolver el color VS Code ${output}`);
+    return output;
+  };
+  const walk = (input) => {
+    if (Array.isArray(input)) return input.map(walk);
+    if (input && typeof input === "object") {
+      return Object.fromEntries(Object.entries(input).map(([key, child]) => [key, walk(child)]));
+    }
+    return resolveString(input);
+  };
+  return walk(value);
+}
+
+function vscodeThemeDocument(theme) {
+  const baseColors = vscodeTemplate("base.colors.template.json").colors;
+  const modeColors = vscodeTemplate(theme.definition.dark
+    ? "dark.colors.template.json"
+    : "light.colors.template.json").colors;
+  const palette = { ...baseColors, ...modeColors, ...theme.definition.colors };
+  const baseLookAndFeel = vscodeTemplate("base.laf.template.json").ui;
+  const modeLookAndFeel = theme.definition.dark
+    ? {
+        ...vscodeTemplate("dark.base.laf.template.json").ui,
+        ...vscodeTemplate("dark.constrast.laf.template.json").ui,
+      }
+    : vscodeTemplate("light.laf.template.json").ui;
+  const syntax = vscodeTemplate("base.syntax.template.json").tokenColors;
+  const semanticTokens = vscodeTemplate("base.semantic-tokens.template.json").semanticTokenColors;
+  const document = resolveVscodeTemplate({
+    type: theme.definition.dark ? "dark" : "light",
+    colors: { ...baseLookAndFeel, ...modeLookAndFeel },
+    semanticHighlighting: true,
+    semanticTokenColors: semanticTokens,
+    tokenColors: syntax,
+  }, palette);
+  for (const [name, color] of Object.entries(theme.definition.colors)) {
+    if (name.startsWith("terminal.ansi")) document.colors[name] = color;
+  }
+  return document;
+}
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const typeBuffer = Buffer.from(type, "ascii");
+  const payload = Buffer.concat([typeBuffer, data]);
+  const chunk = Buffer.alloc(data.length + 12);
+  chunk.writeUInt32BE(data.length, 0);
+  payload.copy(chunk, 4);
+  chunk.writeUInt32BE(crc32(payload), data.length + 8);
+  return chunk;
+}
+
+function paethPredictor(left, above, upperLeft) {
+  const estimate = left + above - upperLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const aboveDistance = Math.abs(estimate - above);
+  const upperLeftDistance = Math.abs(estimate - upperLeft);
+  if (leftDistance <= aboveDistance && leftDistance <= upperLeftDistance) return left;
+  return aboveDistance <= upperLeftDistance ? above : upperLeft;
+}
+
+function pngWithOpacity(source, opacity) {
+  const signature = Buffer.from("89504e470d0a1a0a", "hex");
+  if (!source.subarray(0, 8).equals(signature)) throw new Error("El wallpaper de VS Code no es PNG");
+  let offset = 8;
+  let header;
+  const imageData = [];
+  while (offset < source.length) {
+    const length = source.readUInt32BE(offset);
+    const type = source.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = source.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") header = Buffer.from(data);
+    if (type === "IDAT") imageData.push(data);
+    offset += length + 12;
+    if (type === "IEND") break;
+  }
+  if (!header || !imageData.length) throw new Error("El wallpaper PNG esta incompleto");
+  const width = header.readUInt32BE(0);
+  const height = header.readUInt32BE(4);
+  const bitDepth = header[8];
+  const colorType = header[9];
+  const interlace = header[12];
+  if (bitDepth !== 8 || ![2, 6].includes(colorType) || interlace !== 0) {
+    throw new Error(`PNG no compatible para VS Code: profundidad ${bitDepth}, color ${colorType}, interlace ${interlace}`);
+  }
+  const channels = colorType === 2 ? 3 : 4;
+  const stride = width * channels;
+  const inflated = inflateSync(Buffer.concat(imageData));
+  if (inflated.length !== (stride + 1) * height) throw new Error("Tamano PNG inesperado");
+  const rgbaStride = width * 4;
+  const output = Buffer.alloc((rgbaStride + 1) * height);
+  let previous = Buffer.alloc(stride);
+  for (let row = 0; row < height; row += 1) {
+    const inputOffset = row * (stride + 1);
+    const filter = inflated[inputOffset];
+    const reconstructed = Buffer.alloc(stride);
+    for (let index = 0; index < stride; index += 1) {
+      const encoded = inflated[inputOffset + 1 + index];
+      const left = index >= channels ? reconstructed[index - channels] : 0;
+      const above = previous[index];
+      const upperLeft = index >= channels ? previous[index - channels] : 0;
+      let predictor = 0;
+      if (filter === 1) predictor = left;
+      else if (filter === 2) predictor = above;
+      else if (filter === 3) predictor = Math.floor((left + above) / 2);
+      else if (filter === 4) predictor = paethPredictor(left, above, upperLeft);
+      else if (filter !== 0) throw new Error(`Filtro PNG no compatible: ${filter}`);
+      reconstructed[index] = (encoded + predictor) & 0xff;
+    }
+    const outputOffset = row * (rgbaStride + 1);
+    output[outputOffset] = 0;
+    for (let pixel = 0; pixel < width; pixel += 1) {
+      const sourcePixel = pixel * channels;
+      const targetPixel = outputOffset + 1 + pixel * 4;
+      output[targetPixel] = reconstructed[sourcePixel];
+      output[targetPixel + 1] = reconstructed[sourcePixel + 1];
+      output[targetPixel + 2] = reconstructed[sourcePixel + 2];
+      const sourceAlpha = channels === 4 ? reconstructed[sourcePixel + 3] : 255;
+      output[targetPixel + 3] = Math.round(sourceAlpha * Math.min(1, Math.max(0, opacity)));
+    }
+    previous = reconstructed;
+  }
+  const rgbaHeader = Buffer.from(header);
+  rgbaHeader[9] = 6;
+  return Buffer.concat([
+    signature,
+    pngChunk("IHDR", rgbaHeader),
+    pngChunk("IDAT", deflateSync(output, { level: 9 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function vscodeAnchor(theme) {
+  const positions = {
+    CENTER: "center",
+    MIDDLE_RIGHT: "right center",
+    MIDDLE_LEFT: "left center",
+    TOP_RIGHT: "right top",
+    TOP_LEFT: "left top",
+    BOTTOM_RIGHT: "right bottom",
+    BOTTOM_LEFT: "left bottom",
+  };
+  return positions[theme.definition.backgrounds.default.position] || "center";
+}
+
+function vscodeRuntimeDefinition(theme) {
+  const sticker = `${theme.slug}-sticker.png`;
+  const wallpaper = `${theme.slug}-wallpaper.png`;
+  const command = `doki-theme.theme.nini.${theme.slug}`;
+  return {
+    extensionNames: [command, `doki-theme.theme.wallpaper.nini.${theme.slug}`],
+    themeDefinition: {
+      information: {
+        id: theme.definition.id,
+        name: theme.definition.name,
+        displayName: theme.definition.displayName,
+        dark: theme.definition.dark,
+        author: theme.definition.author,
+        group: theme.definition.group,
+        stickers: {
+          default: {
+            name: sticker,
+            anchor: vscodeAnchor(theme),
+            opacity: theme.definition.backgrounds.default.opacity,
+          },
+        },
+        characterId: stableUuid(theme.slug),
+      },
+      stickers: {
+        default: {
+          path: `/nini/${theme.slug}/${sticker}`,
+          name: wallpaper,
+          anchoring: vscodeAnchor(theme),
+        },
+      },
+    },
+  };
+}
+
+function prependVscodeDefinitions(source, marker, definitions, description) {
+  if (!source.includes(marker)) throw new Error(`La base de Doki VS Code cambio: no encontre ${description}`);
+  const serialized = definitions.map((definition) => JSON.stringify(definition)).join(",");
+  return source.replace(marker, `${marker}${serialized},`);
+}
+
+function vscodeLocalAssetsSource(themes) {
+  const specs = Object.fromEntries(themes.map((theme) => [theme.definition.id, {
+    sticker: `${theme.slug}-sticker.png`,
+    wallpaper: `${theme.slug}-wallpaper.png`,
+    background: `${theme.slug}-background.png`,
+  }]));
+  return `"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const vscode = require("vscode");
+const SPECS = ${JSON.stringify(specs, null, 2)};
+
+function configuredAsset(config, key, fallback) {
+  const candidate = String(config.get(key) || "");
+  return candidate && fs.existsSync(candidate) ? candidate : fallback;
+}
+
+function dataUrl(file) {
+  const extension = path.extname(file).toLowerCase();
+  const mime = extension === ".gif" ? "image/gif"
+    : extension === ".jpg" || extension === ".jpeg" ? "image/jpeg"
+      : "image/png";
+  return \`data:\${mime};base64,\${fs.readFileSync(file).toString("base64")}\`;
+}
+
+function resolveLocalAssets(theme, currentSticker, context) {
+  const spec = SPECS[theme.id];
+  if (!spec) return undefined;
+  const assets = path.join(context.extensionPath, "assets", "nini");
+  const config = vscode.workspace.getConfiguration("doki");
+  const sticker = configuredAsset(config, "sticker.path", path.join(assets, spec.sticker));
+  const wallpaper = configuredAsset(config, "wallpaper.path", path.join(assets, spec.wallpaper));
+  const background = configuredAsset(config, "background.path", path.join(assets, spec.background));
+  return {
+    stickerDataURL: dataUrl(sticker),
+    backgroundImageURL: dataUrl(background),
+    wallpaperImageURL: dataUrl(wallpaper),
+    backgroundAnchoring: config.get("background.anchor") || currentSticker.anchoring,
+  };
+}
+
+exports.resolveLocalAssets = resolveLocalAssets;
+`;
+}
+
+function patchVscodeLocalAssets(pluginRoot, themes) {
+  fs.writeFileSync(path.join(pluginRoot, "out", "NiniLocalAssets.js"), vscodeLocalAssetsSource(themes));
+  const updaterPath = path.join(pluginRoot, "out", "StickerUpdateService.js");
+  let source = fs.readFileSync(updaterPath, "utf8");
+  source = replaceRequired(
+    source,
+    'const DokiTheme_1 = require("./DokiTheme");',
+    'const DokiTheme_1 = require("./DokiTheme");\nconst NiniLocalAssets_1 = require("./NiniLocalAssets");',
+    "el import de DokiTheme en VS Code",
+  );
+  const attemptMarker = "const _attemptToUpdateSticker = (context, { sticker: currentSticker, theme }, assetUpdater) => __awaiter(void 0, void 0, void 0, function* () {";
+  source = replaceRequired(
+    source,
+    attemptMarker,
+    `${attemptMarker}\n    const localAssets = NiniLocalAssets_1.resolveLocalAssets(theme, currentSticker, context);\n    if (localAssets) return localAssets;`,
+    "la actualizacion de recursos de VS Code",
+  );
+  fs.writeFileSync(updaterPath, source);
+}
+
+function patchVscodeManifest(pluginRoot, themes) {
+  const packagePath = path.join(pluginRoot, "package.json");
+  const packageJson = readJson(packagePath);
+  packageJson.displayName = "Doki Theme + Nini";
+  packageJson.description = "Official Doki Theme runtime extended with Nini custom themes";
+  delete packageJson.__metadata;
+  packageJson.activationEvents ||= [];
+  packageJson.contributes.commands ||= [];
+  packageJson.contributes.themes ||= [];
+  for (const theme of themes) {
+    const [stickerCommand, wallpaperCommand] = vscodeRuntimeDefinition(theme).extensionNames;
+    packageJson.activationEvents.push(`onCommand:${stickerCommand}`, `onCommand:${wallpaperCommand}`);
+    packageJson.contributes.commands.push(
+      { command: stickerCommand, title: `Doki-Theme: Install ${theme.definition.name}'s Sticker` },
+      { command: wallpaperCommand, title: `Doki-Theme: Install ${theme.definition.name}'s Wallpaper` },
+    );
+    packageJson.contributes.themes.push({
+      id: theme.definition.id,
+      label: `Nini Doki: ${theme.definition.group}: ${theme.definition.displayName}`,
+      path: `./generatedThemes/Nini ${theme.slug}.theme.json`,
+      uiTheme: theme.definition.dark ? "vs-dark" : "vs",
+    });
+  }
+  writeJson(packagePath, packageJson);
+}
+
+function patchVscodeDefinitions(pluginRoot, definitions) {
+  for (const relative of ["out/DokiThemeDefinitions.js", "out/cjs/DokiThemeDefinitions.js"]) {
+    const file = path.join(pluginRoot, relative);
+    if (!fs.existsSync(file)) continue;
+    let source = fs.readFileSync(file, "utf8");
+    const marker = source.includes("exports.default = [") ? "exports.default = [" : 'exports["default"] = [';
+    source = prependVscodeDefinitions(source, marker, definitions, relative);
+    fs.writeFileSync(file, source);
+  }
+  const webBundlePath = path.join(pluginRoot, "out", "web-extension.bundled.js");
+  let webBundle = fs.readFileSync(webBundlePath, "utf8");
+  webBundle = prependVscodeDefinitions(webBundle, "e.default=[", definitions, "las definiciones web");
+  fs.writeFileSync(webBundlePath, webBundle);
+}
+
+function buildVscode(themes = validateThemes()) {
+  requireRuntimeBases();
+  const output = path.join(DIST_DIR, "vscode");
+  resetDir(output);
+  run("unzip", ["-q", path.join(ROOT, "vendor", "vscode-base.vsix"), "-d", output]);
+  const pluginRoot = path.join(output, "extension");
+  const assetsDir = path.join(pluginRoot, "assets", "nini");
+  fs.mkdirSync(assetsDir, { recursive: true });
+  const definitions = themes.map(vscodeRuntimeDefinition);
+  for (const theme of themes) {
+    writeJson(
+      path.join(pluginRoot, "generatedThemes", `Nini ${theme.slug}.theme.json`),
+      vscodeThemeDocument(theme),
+    );
+    const sticker = fs.readFileSync(path.join(theme.directory, "sticker.png"));
+    const wallpaper = fs.readFileSync(path.join(theme.directory, "wallpaper.png"));
+    fs.writeFileSync(path.join(assetsDir, `${theme.slug}-sticker.png`), sticker);
+    fs.writeFileSync(path.join(assetsDir, `${theme.slug}-background.png`), wallpaper);
+    fs.writeFileSync(
+      path.join(assetsDir, `${theme.slug}-wallpaper.png`),
+      pngWithOpacity(wallpaper, theme.definition.backgrounds.default.opacity / 100),
+    );
+  }
+  patchVscodeManifest(pluginRoot, themes);
+  patchVscodeDefinitions(pluginRoot, definitions);
+  patchVscodeLocalAssets(pluginRoot, themes);
+
+  const vsixManifestPath = path.join(output, "extension.vsixmanifest");
+  if (fs.existsSync(vsixManifestPath)) {
+    let manifest = fs.readFileSync(vsixManifestPath, "utf8");
+    manifest = manifest
+      .replace(/<DisplayName>[^<]+<\/DisplayName>/, "<DisplayName>Doki Theme + Nini</DisplayName>")
+      .replace(/<Description xml:space="preserve">[^<]+<\/Description>/, '<Description xml:space="preserve">Official Doki Theme runtime extended with Nini custom themes</Description>');
+    fs.writeFileSync(vsixManifestPath, manifest);
+  }
+  const archive = path.join(DIST_DIR, `Nini-Doki-VSCode-${VSCODE_VERSION}.vsix`);
+  fs.rmSync(archive, { force: true });
+  run("zip", ["-qr", archive, "."], { cwd: output });
+  console.log(`VS Code: ${archive}`);
   return { archive, pluginRoot };
 }
 
@@ -765,6 +1425,12 @@ function installIdea(themes, explicitTarget) {
   fs.cpSync(pluginRoot, target, { recursive: true });
   console.log(`JetBrains instalado en ${target}`);
   console.log("Reinicia IDEA para cargar el plugin generado.");
+}
+
+function installVscode(themes) {
+  const { archive } = buildVscode(themes);
+  run("code", ["--install-extension", archive, "--force"]);
+  console.log("VS Code instalado. Recarga la ventana para activar los temas Nini.");
 }
 
 function optionsFrom(args) {
@@ -859,6 +1525,7 @@ function compileInstaller() {
 function exportPortable(themes) {
   const idea = buildIdea(themes);
   const hyper = buildHyper(themes);
+  const vscode = buildVscode(themes);
   const backups = path.resolve(ROOT, "..", "backups");
   fs.mkdirSync(backups, { recursive: true });
   const portable = path.join(backups, "Nini-Doki-Themes-portable.zip");
@@ -870,7 +1537,7 @@ function exportPortable(themes) {
     "THIRD_PARTY_NOTICES.md", "LICENSE", "upstream.lock.json",
     "runtime", "scripts", "src", "official", "vendor",
   ]);
-  for (const archive of [idea.archive, hyper.archive]) {
+  for (const archive of [idea.archive, hyper.archive, vscode.archive]) {
     fs.copyFileSync(archive, path.join(backups, path.basename(archive)));
   }
   console.log(`Proyecto portable: ${portable}`);
@@ -887,6 +1554,7 @@ function usage() {
   npm run build
   npm run install:hyper
   npm run install:idea -- [--target /ruta/doki-theme-jetbrains]
+  npm run install:vscode
   npm run new-theme
   npm run export`);
 }
@@ -910,13 +1578,16 @@ try {
     if (!target || target === "all") {
       buildIdea(themes);
       buildHyper(themes);
+      buildVscode(themes);
     } else if (target === "idea") buildIdea(themes);
     else if (target === "hyper") buildHyper(themes);
+    else if (target === "vscode") buildVscode(themes);
     else throw new Error(`Destino desconocido: ${target}`);
   } else if (command === "install") {
     const options = optionsFrom(rest);
     if (target === "idea") installIdea(themes, options.target);
     else if (target === "hyper") installHyper(themes);
+    else if (target === "vscode") installVscode(themes);
     else throw new Error(`Destino desconocido: ${target}`);
   } else if (command === "new") {
     await createTheme([target, ...rest].filter(Boolean));

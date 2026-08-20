@@ -19,8 +19,11 @@ jobs:
       - run: npm run bootstrap
       - run: npm run build
       - run: npm run test:hyper
+      - run: npm run test:vscode
       - uses: actions/upload-artifact@v4
         with:
           name: nini-doki-packages
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.vsix
           if-no-files-found: error

@@ -14,9 +14,12 @@
     "build": "node scripts/doki.mjs build",
     "build:hyper": "node scripts/doki.mjs build hyper",
     "build:idea": "node scripts/doki.mjs build idea",
+    "build:vscode": "node scripts/doki.mjs build vscode",
     "test:hyper": "node scripts/test-hyper-runtime.cjs dist/hyper/doki-theme-hyper-nini",
+    "test:vscode": "node scripts/test-vscode-runtime.cjs dist/vscode/extension",
     "install:hyper": "node scripts/doki.mjs install hyper",
     "install:idea": "node scripts/doki.mjs install idea",
+    "install:vscode": "node scripts/doki.mjs install vscode",
     "new-theme": "node scripts/doki.mjs new",
     "export": "node scripts/doki.mjs export",
     "compile:installer": "node scripts/doki.mjs compile-installer"
