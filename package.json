@@ -1,6 +1,6 @@
 {
   "name": "nini-doki-themes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Public Doki extension pack and builders for Nini's custom themes",
