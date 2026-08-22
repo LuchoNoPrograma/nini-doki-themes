@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "references": [
+    {
+      "role": "pose",
+      "file": "01-pose.png",
+      "originalFileName": "codex-clipboard-q47tXV.png",
+      "sha256": "118a220e5272ea526d5b480a32b2da30a2ded0be9b067dee497de230d867f516",
+      "bytes": 324819
+    },
+    {
+      "role": "identity",
+      "file": "02-identity.png",
+      "originalFileName": "codex-clipboard-pYDgcZ.png",
+      "sha256": "4df2be400fded0e86b3e3b23201cba845fc2d57ef26e469cfe69cbb8a32ffdeb",
+      "bytes": 190200
+    }
+  ]
+}
