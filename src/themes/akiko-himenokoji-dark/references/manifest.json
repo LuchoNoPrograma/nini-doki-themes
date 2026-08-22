@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "references": [
+    {
+      "role": "identity-primary",
+      "file": "01-identity-primary.png",
+      "originalFileName": "codex-clipboard-4tjQxV.png",
+      "sha256": "72a288aa6b29c009fa484dfd67bdd697d3fb32df01305d81380ba818601290bf",
+      "bytes": 118381
+    },
+    {
+      "role": "identity-secondary",
+      "file": "02-identity-secondary.png",
+      "originalFileName": "codex-clipboard-me6DQb.png",
+      "sha256": "0328ce6374befada2896a74d6e9b54e103b6f7a8cf3b42ab6ed71c5628d6328e",
+      "bytes": 82591
+    },
+    {
+      "role": "selected-sticker",
+      "file": "03-selected-sticker.png",
+      "originalFileName": "akiko sticker.png",
+      "sha256": "c59b35e0f142b5cfbbfa4e317dfd6cafc705546cfdced6146b29853f279121f2",
+      "bytes": 1696248
+    },
+    {
+      "role": "selected-background",
+      "file": "04-selected-background.png",
+      "originalFileName": "akiko bg.png",
+      "sha256": "321e65b8b0368e7b3d7b9569ca4dea58341de3dabcd9b66d9a9b351e74a9ba77",
+      "bytes": 1075536
+    }
+  ]
+}

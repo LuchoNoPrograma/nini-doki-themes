@@ -1,0 +1,10 @@
+{
+  "id": "f4c25ecb-6830-4037-ab10-8e88e23af735",
+  "overrides": {},
+  "laf": {
+    "extends": "dark-contrast",
+    "ui": {}
+  },
+  "syntax": {},
+  "colors": {}
+}
