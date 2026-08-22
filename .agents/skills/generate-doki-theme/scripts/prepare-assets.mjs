@@ -27,6 +27,12 @@ function runFfmpeg(args) {
   execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", ...args], { stdio: "inherit" });
 }
 
+function normalizeRgb(value, option) {
+  const match = String(value || "").match(/^#?([0-9a-f]{6})$/i);
+  if (!match) throw new Error(`${option} must be a 6-digit RGB hex color`);
+  return match[1].toLowerCase();
+}
+
 function validateStickerTransparency(info, label, expectedSize) {
   const pixelCount = info.width * info.height;
   if (
@@ -152,17 +158,24 @@ function pngTransparency(file) {
 }
 
 const options = optionsFrom(process.argv.slice(2));
-if (!options.wallpaper || !options.sticker || !options["output-dir"]) {
-  fail("Usage: prepare-assets.mjs --wallpaper <image> --sticker <png> --output-dir <directory> [--force]");
+const wallpaperOptions = [options.wallpaper, options["wallpaper-color"]].filter(Boolean);
+if (wallpaperOptions.length !== 1 || !options.sticker || !options["output-dir"]) {
+  fail("Usage: prepare-assets.mjs (--wallpaper <image> | --wallpaper-color <#rrggbb>) --sticker <png> --output-dir <directory> [--force]");
 }
 if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status !== 0) {
   fail("ffmpeg is required to normalize theme assets");
 }
 
-const wallpaperInput = path.resolve(options.wallpaper);
+const wallpaperInput = options.wallpaper ? path.resolve(options.wallpaper) : undefined;
+let wallpaperColor;
+try {
+  wallpaperColor = options["wallpaper-color"] ? normalizeRgb(options["wallpaper-color"], "--wallpaper-color") : undefined;
+} catch (error) {
+  fail(error.message);
+}
 const stickerInput = path.resolve(options.sticker);
 const outputDir = path.resolve(options["output-dir"]);
-for (const input of [wallpaperInput, stickerInput]) {
+for (const input of [wallpaperInput, stickerInput].filter(Boolean)) {
   if (!fs.existsSync(input)) fail(`Missing input: ${input}`);
 }
 
@@ -189,7 +202,18 @@ const staged = {
 };
 
 try {
-  if (wallpaperInput === outputs.wallpaperJpg) {
+  if (wallpaperColor) {
+    const [red, green, blue] = wallpaperColor.match(/../g).map((channel) => Number.parseInt(channel, 16));
+    const flatSource = `nullsrc=s=1920x1080:r=1,format=rgb24,geq=r=${red}:g=${green}:b=${blue}`;
+    runFfmpeg([
+      "-y", "-f", "lavfi", "-i", flatSource,
+      "-vf", "format=rgb24", "-frames:v", "1", "-q:v", "2", staged.wallpaperJpg,
+    ]);
+    runFfmpeg([
+      "-y", "-f", "lavfi", "-i", flatSource,
+      "-vf", "format=rgb24", "-frames:v", "1", "-compression_level", "9", staged.wallpaperPng,
+    ]);
+  } else if (wallpaperInput === outputs.wallpaperJpg) {
     fs.copyFileSync(wallpaperInput, staged.wallpaperJpg);
   } else {
     runFfmpeg([
@@ -198,10 +222,12 @@ try {
       "-frames:v", "1", "-q:v", "2", staged.wallpaperJpg,
     ]);
   }
-  runFfmpeg([
-    "-y", "-i", staged.wallpaperJpg,
-    "-vf", "format=rgb24", "-frames:v", "1", "-compression_level", "9", staged.wallpaperPng,
-  ]);
+  if (!wallpaperColor) {
+    runFfmpeg([
+      "-y", "-i", staged.wallpaperJpg,
+      "-vf", "format=rgb24", "-frames:v", "1", "-compression_level", "9", staged.wallpaperPng,
+    ]);
+  }
   if (sourceTransparency.width === 700 && sourceTransparency.height === 700) {
     fs.copyFileSync(stickerInput, staged.stickerPng);
   } else {
@@ -218,9 +244,10 @@ try {
 
   console.log(JSON.stringify({
     ...outputs,
+    wallpaperSource: wallpaperColor ? { type: "flat-color", color: `#${wallpaperColor}`, opacity: 100 } : { type: "image", path: wallpaperInput },
     sourceSticker: sourceTransparency,
     sticker: transparency,
-    note: "wallpaper.png is the repository compatibility copy; wallpaper.jpg and the 700x700 sticker.png are the creative deliverables.",
+    note: "wallpaper.png is the repository compatibility copy; wallpaper.jpg and the 700x700 sticker.png are the source deliverables.",
   }, null, 2));
 } catch (error) {
   console.error(error.message);

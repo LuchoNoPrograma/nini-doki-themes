@@ -28,7 +28,7 @@ Preserve semantic warning/error/diff colors unless the new palette can change th
 
 ## Update The Editor Scheme
 
-Open `editor.xml` and map its background, foreground, comments, keyword, string, constant, class/type, tag, selection, caret, and line-number colors to the corresponding named colors in `definition.json`. Do not leave obvious hue families from the cloned character. Keep any specialized language colors that remain semantically useful and harmonious.
+Open `editor.xml` and map its background, foreground, comments, keyword, string, constant, class/type, tag, selection, caret, and line-number colors to the corresponding named colors in `definition.json`. Do not leave obvious hue families from the cloned character.
 
 ## Required Contrast
 
@@ -41,9 +41,15 @@ node .agents/skills/generate-doki-theme/scripts/audit-palette.mjs \
 
 The audit enforces:
 
-- Normal foregrounds: at least 4.5:1 against their background.
-- Comments and line numbers: at least 3:1 against the editor background.
-- UI accent: at least 3:1 against the base background.
+- Normal foregrounds: at least `4.5:1` against their background.
+- Comments and line numbers: at least `3:1` against the editor background.
+- UI accent: at least `3:1` against the base background.
 - Exact consistency of the three accent alpha variants.
 
-Also compare the completed theme against the base definition. The base, surface, primary accent, secondary highlight, selections, and core syntax roles should reflect the new character; a theme that only changes one or two fields is incomplete even if the contrast audit passes.
+Also compare the completed theme against the base definition. The base, surface, primary accent, secondary highlight, selections, and core syntax roles should reflect the new character.
+
+## Generated Background Integration
+
+Record the selected background candidate and its single flat field color in `artwork-prompts.md`. Set `backgrounds.default.opacity` to exactly `22` and do not inherit, calculate, or tune another value from the base theme.
+
+Normalize the selected background with `prepare-assets.mjs --wallpaper`. Use `--wallpaper-color` only when the user explicitly requests a perfectly flat, non-generated background. Do not replace `baseBackground` with an average wallpaper color unless it independently satisfies the editor palette and contrast requirements.

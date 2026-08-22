@@ -1,49 +1,33 @@
-# Installed Hyper Visual Style
+# Doki Artwork Style
 
-Use this reference only when the active Hyper installation cannot be inspected dynamically.
+Use repository artwork or user-supplied examples as treatment references, never as identity sources.
 
-## Observed Custom Stickers
+## Sticker Master
 
-The installed Nini examples use 200x200 non-interlaced RGBA PNGs with genuine transparent space around the character. Treat those files as composition references. New stickers use a 700x700 RGBA master so contours, costume cues, and facial expressions survive high-density displays and future resizing.
+- Canvas: exactly `700x700` RGBA. A `200x200` resize is QA-only after generation, never a second requested output.
+- Transparency: real alpha outside the die-cut contour, including all four corners.
+- Framing: compact head-and-upper-body or three-quarter composition with every extremity inside a `28-35 px` safe area.
+- Proportions: chibi or semi-chibi chosen from the user's target sticker; when absent, use an oversized expressive head and compact waist-up crop.
+- Pose: preserve a supplied pose faithfully. Without one, use a clear personality-specific gesture.
+- Rendering: flat graphic forms, crisp linework, clean cel shading, controlled highlights, and simplified small details.
+- Border: `12-18 px` white die-cut outer rim plus a `4-7 px` inner keyline in the theme accent.
+- Identity: canonical hair, face, costume, accessories, props, and color relationships remain recognizable after simplification.
 
-- Fanny is the strongest default reference: compact chibi proportions, oversized head, waist-up crop, wink and confident gesture, simplified but recognizable outfit, clean cel shading, white die-cut rim, and a subtle darker separation line.
-- Angela uses a centered semi-chibi bust, large readable eyes, a pose tied to her personality, soft cel shading, generous transparent corners, and a pale outer rim.
-- Guinevere uses a playful wink and two-handed gesture, with a warm palette-colored contour that reinforces her theme.
-- Vexana is less chibi but retains the same compact bust, expressive gesture, crisp cutout, transparent canvas, and light outer rim.
+Fanny is a useful fallback for compact framing and small-scale readability. Angela, Guinevere, and Vexana show that the degree of chibi simplification may vary. A user-supplied target sticker takes precedence for proportions and finish.
 
-The common style matters more than copying one exact rendering: faithful silhouette and costume, expressive anime face, clean cutout, compact composition, and immediate readability at icon scale.
+## Background Master
 
-## Recommended Sticker Treatment
+- Canvas: exactly `1920x1080`, fully opaque, landscape RGB.
+- Reference fidelity: when the user designates an official image as the background reference, preserve its pose, silhouette, clothing motion, outfit, and identity cues while adapting it to the landscape canvas.
+- Composition: place the subject mainly on the right third and reserve `55-65%` quiet negative space on the left for terminal content, unless the user explicitly requests another layout.
+- Face policy: show no recognizable eyes, nose, and mouth together. Prefer a back or rear three-quarter angle, a deliberate crop, or natural hair occlusion. If part of the face remains visible, reduce it to minimal flat shadow or contour cues; never erase it into a malformed blank face.
+- Backdrop: one perfectly flat solid color derived from the theme palette. No second color region, gradient, texture, pattern, geometry, vignette, scenery, floor, shadow field, or noise.
+- Character rendering: simplified flat editorial anime illustration with crisp shapes, minimal internal lines, restrained cel shading, and very limited highlights. Aim for a quiet corporate or enterprise illustration impression rather than detailed key art, a poster, or a cinematic scene.
+- Identity: recognition comes from hair silhouette, outfit, accessories, pose, and canonical color relationships, not detailed facial features.
+- Exclusions: no typography, logos, watermarks, faux UI, detailed face, busy left side, bokeh, particles, glow clouds, architecture, environment, or unrelated characters.
 
-- Canvas: exactly 700x700 RGBA, plus a temporary 200x200 preview for legibility QA.
-- Transparency: real alpha outside the character; transparent corners and breathing room on every side.
-- Framing: head and upper body, normally waist-up; head approximately 40-55 percent of the character height.
-- Pose: one clear gesture that communicates personality. Prefer a wink, smile, determined look, shy glance, or signature hand pose supported by canon/reference evidence.
-- Rendering: polished anime chibi, clean cel shading, controlled highlights, no painterly background effects.
-- Border: 12-18 px white outer die-cut rim for terminal contrast, plus a 4-7 px inner keyline or soft shadow using the theme's principal accent. The border follows hair, clothing, and accessories; it is never a square or circle behind the character.
-- Safe area: keep roughly 28-35 px of transparent padding; do not clip hair spikes, ribbons, weapons, hands, or ears.
+Set `backgrounds.default.opacity` to exactly `22`. Treat `22%` as a fixed installation invariant, not a range or a value to tune per theme.
 
-## Observed Wallpaper Composition
+## Candidate Consistency
 
-The active Fanny wallpaper is a useful house reference: a 1920x1080 RGB landscape, dark low-detail navy field, large action silhouette anchored to the right, and broad quiet space on the left for terminal content. The face is obscured naturally by angle and hair rather than erased.
-
-Apply that logic, not its exact pose:
-
-- Use a back view, rear three-quarter view, face covered by hair/helmet/prop, or a deliberate crop that excludes facial features.
-- Keep 55-65 percent of the left side visually quiet.
-- Use two or three large flat tonal regions with only subtle texture or sparse line motifs.
-- Limit background contrast. Character detail may be higher, but it should still sit behind terminal text at the configured opacity.
-- Preserve signature silhouette, outfit, weapon, or accessory cues so the character remains identifiable without a face.
-- Avoid scenery, rooms, landscapes, particles, bokeh, typography, emblems, watermarks, and faux UI.
-
-## Installed Paths
-
-The active theme ID lives in `~/.doki-theme-hyper-config/.hyper.doki.config.json`. Installed Nini assets normally live below:
-
-```text
-~/.hyper_plugins/local/doki-theme-hyper-nini/assets/nini/
-~/.doki-theme-hyper-config/stickers/nini/
-~/.doki-theme-hyper-config/wallpapers/nini/
-```
-
-Treat these as read-only references. Generate and edit the repository copies under `src/themes/<slug>/`.
+Each external batch prompt requests four separate files for one asset type. The user selects one sticker and one background and returns only that final pair for installation. When a supplied reference fixes the pose or composition, candidate variation comes from rendering only, not from changing the requested arrangement.

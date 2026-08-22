@@ -1,4 +1,4 @@
 interface:
   display_name: "Generate Doki Theme"
-  short_description: "Generate faithful Doki theme artwork"
-  default_prompt: "Use $generate-doki-theme to create a new character theme from reference images."
+  short_description: "Prompt batches and install selected artwork"
+  default_prompt: "Use $generate-doki-theme to give me copy-paste prompts for 4 sticker and 4 background candidates, then install the pair I select and return."
